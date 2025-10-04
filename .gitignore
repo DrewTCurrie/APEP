@@ -6,8 +6,6 @@ __pycahce__/*
 # Ignore unsloth files
 unsloth_compiled_cache 
 unsloth_compiled_cache/*
-trainers
-trainers/*
 
 # Ignore Training Output contents
 TrainingOutput/*
