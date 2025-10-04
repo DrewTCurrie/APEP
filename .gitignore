@@ -15,5 +15,9 @@ TrainingOutput/*
 # Ignore system prompts contents
 systemprompts/*
 
-#Ignore datafiles
+# Ignore datafiles
 data/trainingData/*
+data/__init__.py
+
+# Ignore backup files
+opwebuiTools/diary copy.py
