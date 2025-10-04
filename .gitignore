@@ -21,3 +21,4 @@ data/__init__.py
 
 # Ignore backup files
 opwebuiTools/diary copy.py
+data/createData.py
