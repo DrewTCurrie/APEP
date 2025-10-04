@@ -1,0 +1,19 @@
+# Ignore python caches
+__pycache__
+__pycahce__/*
+
+
+# Ignore unsloth files
+unsloth_compiled_cache 
+unsloth_compiled_cache/*
+trainers
+trainers/*
+
+# Ignore Training Output contents
+TrainingOutput/*
+
+# Ignore system prompts contents
+systemprompts/*
+
+#Ignore datafiles
+data/trainingData/*
