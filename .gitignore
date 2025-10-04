@@ -22,4 +22,4 @@ opwebuiTools/diary copy.py
 data/createData.py
 
 # Ignore secrets
-data/secrets.json
+data/createTrainingData/secrets.json
