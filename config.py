@@ -16,7 +16,7 @@ import os
 # =============================
 BASE_DIR = "/home/drew/Documents/AI_Hobby/training/AdaTraining/"
 
-TRAINING_DATA_PATH = os.path.join(BASE_DIR, "data/trainingData/generatedTrainingData.json")
+TRAINING_DATA_PATH = os.path.join(BASE_DIR, "data/trainingData/generatedTrainingData-formatted-updated.json")
 PERSONALITY_PATH = os.path.join(BASE_DIR, "data/trainingData/personality.json")
 SYSTEM_PROMPT_PATH = os.path.join(BASE_DIR, "systemprompts/ada_system_prompt.txt")
 
@@ -26,16 +26,16 @@ OUTPUT_DIR = "TrainingOutput"
 # MODEL SETTINGS
 # =============================
 MODEL_NAME = "Goekdeniz-Guelmez/Josiefied-Qwen3-8B-abliterated-v1"
-REQUIRED_CHAT_TEMPLATE = "qwen2.5"
+REQUIRED_CHAT_TEMPLATE = "qwen3"
 MAX_SEQ_LEN = 4096
 
 # LoRa settings
-LORA_R = 16
+LORA_R = 64
 LORA_TARGET_MODULES = [
     "q_proj", "k_proj", "v_proj", "o_proj", 
     "gate_proj", "up_proj", "down_proj"
 ]
-LORA_ALPHA = 32
+LORA_ALPHA = 128
 LORA_DROPOUT = 0.0
 LORA_BIAS = "none"
 USE_GRADIENT_CHECKPOINTING = "unsloth"
@@ -47,26 +47,26 @@ LOFTQ_CONFIG = None
 # TRAINING HYPERPARAMETERS
 # =============================
 BATCH_SIZE = 1
-GRAD_ACCUM_STEPS = 2
-LEARNING_RATE = 1e-5
+GRAD_ACCUM_STEPS = 4
+LEARNING_RATE = 5e-5
 LOGGING_STEPS = 5
-MAX_STEPS = 800
-WARMUP_STEPS = 20
+MAX_STEPS = 4200
+WARMUP_STEPS = 50
 WEIGHT_DECAY = 0.01
-LR_SCHEDULER_TYPE = "linear"
+LR_SCHEDULER_TYPE = "cosine"
 SEED = 3407
 FP16 = True
 BF16 = False
 REPORT_TO = "none"
 EVAL_STRATEGY = "steps"
-EVAL_STEPS = 50
+EVAL_STEPS = 150 
 TEST_SIZE = 0.01  # Validation split fraction
 
 # =============================
 # DATASET SETTINGS
 # =============================
-MEGA_SIZE = 20          # Conversations per megachat
-TARGET_MEGACHATS = 600   # Number of megachats to oversample
+MEGA_SIZE = 8          # Conversations per megachat
+TARGET_MEGACHATS = 4200   # Number of megachats to oversample
 
 # =============================
 # MISC
