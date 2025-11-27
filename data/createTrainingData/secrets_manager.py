@@ -5,14 +5,15 @@ Centralized secrets and API key management.
 """
 
 import json
+import os
 from pathlib import Path
 from typing import Dict, Optional
-
+CREATE_TRAINING_DATA_PATH="data/createTrainingData"
 
 class SecretsManager:
     """Manages API keys and secrets for training data generation"""
     
-    def __init__(self, secrets_file: str = "data/secrets.json"):
+    def __init__(self, secrets_file: str = "data/createTrainingData/secrets.json"):
         self.secrets_file = Path(secrets_file)
         self.secrets = {}
         self._load_or_create()
