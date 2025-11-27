@@ -23,3 +23,17 @@ data/createData.py
 
 # Ignore secrets
 data/createTrainingData/secrets.json
+
+# Ignore venv
+venv
+
+#Ignore llamaCPP
+llama.cpp
+
+#Ignore database fragments
+DiaryUpdates-backup.txt
+DiaryUpdates.txt
+DatabaseFragments
+
+#Ignore SQLite Database
+training_tools.db
