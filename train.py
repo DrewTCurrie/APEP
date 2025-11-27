@@ -98,6 +98,11 @@ def main():
         target_megachats=config.TARGET_MEGACHATS,
         mega_size=config.MEGA_SIZE,
         cache_path=os.path.join(config.OUTPUT_DIR, "cached_dataset"),
+        dataset_weights={
+            'generated':0.0,
+            'external':0.95,
+            'personality':0.05,
+        }
     )
     train_test = dataset.train_test_split(
         test_size=config.TEST_SIZE, shuffle=True, seed=config.SEED
@@ -130,9 +135,9 @@ def main():
             skip_special_tokens=True,
         )
         cute_print("🔍 Random Multi-turn Training Example Preview:", "PINK")
-        cute_print("\n[INPUT]:", "CYAN")
+        cute_print("\n[Drew]:", "CYAN")
         print(decoded_input)
-        cute_print("\n[ASSISTANT]:", "GREEN")
+        cute_print("\n[Ada]:", "GREEN")
         print(decoded_labels)
 
     print("=" * 60)
