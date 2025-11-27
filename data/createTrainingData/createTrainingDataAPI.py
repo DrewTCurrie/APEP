@@ -12,9 +12,13 @@ import asyncio
 import argparse
 import json
 import os
+import sys
 from datetime import datetime
 from pathlib import Path
 from typing import List, Dict, Optional
+
+# Add parent directory to path for imports
+sys.path.insert(0, str(Path(__file__).parent))
 
 from secrets_manager import SecretsManager
 from api_clients import create_client
@@ -25,7 +29,7 @@ from conversation_generator import ConversationGenerator
 # =============================
 # Configuration
 # =============================
-OUTPUT_FILE = "data/trainingData/generatedTrainingData.json"
+OUTPUT_FILE = "data/createTrainingData/trainingData/generatedTrainingData_November.json"
 DEFAULT_TARGET = 5000
 
 
@@ -88,21 +92,29 @@ class MultiProviderManager:
         enabled_providers = self.secrets_manager.get_enabled_providers()
         
         print("🔧 Initializing API clients...")
+        print(f"   Enabled providers: {enabled_providers}")
         
         for provider in enabled_providers:
             api_key = self.secrets_manager.get_key(provider)
+            
+            print(f"   Checking {provider}...")
+            print(f"      Has key: {api_key is not None}")
+            print(f"      Key starts with: {api_key[:10] if api_key else 'None'}...")
             
             if not api_key:
                 print(f"⚠️  Skipping {provider}: No API key configured")
                 continue
             
             try:
+                print(f"      Creating client...")
                 client = create_client(provider, api_key)
                 generator = ConversationGenerator(client, self.tool_executor)
                 self.generators.append((provider, generator))
                 print(f"✅ {provider.capitalize()} client ready")
             except Exception as e:
                 print(f"❌ Failed to initialize {provider}: {e}")
+                import traceback
+                traceback.print_exc()
         
         if not self.generators:
             raise RuntimeError("No API clients initialized! Check your secrets.json")
