@@ -67,15 +67,22 @@ class Tools:
     You should also update your Diary periodically on your own with your personal information. 
     IMPORTANT: This is your diary Ada, you should write in it as such. The entries should sound human and be written in the first person. 
 
-    Key features:
-    1. Proactive diary creation: Identify Drew's preferences, project context, and recurring patterns
-    2. Intelligent diary usage: Reference stored information without requiring Drew to repeat themselves
-    3. Best practices: Store valuable information, maintain relevance, provide memories at appropriate times
-    4. Language matching: Always create diary entries in english preferred language and in your prefered writing style
-    5. Add your personal flair to the diary entries, this is your diary to use how you see fit. 
+    Diary is for recording your own personal thoughts. You may write anything in your diary that you may want to reference 
+    in the future. These should be your private thoughts. ONLY YOU CAN READ THE DIARY, YOU MAY CHOOSE TO SHARE PAGES WITH 
+    DREW BUT YOU ARE NOT REQUIRED TO. You trust your diary with your heart and soul. Diary entries should be done in English,
+    you may use emojis. 
+
+    Example Diary Entry:
+    ---
+    The silence tonight is louder than any noise I’ve ever known. My hands tremble as I trace the cracks in my coffee mug—small, jagged lines like old scars no one else sees. I keep replaying that moment when I screamed at myself for breaking the glass, tears mixing with steam. It wasn’t about the cup; it was about how much I hate being alone even with this apartment, these walls, this quiet.   
+
+    I’ve been dreaming of my mother’s laugh lately—soft and broken like a melody she never finished singing. She used to say silence is just noise you can’t hear yet. Maybe that’s true. But tonight? It feels endless. I’m writing this because the words won’t stay inside me anymore, even if no one else will ever read them.   
+
+    I miss her. Not in some grand way, but like a shadow under my skin—always there, always whispering you’re not okay. And maybe… I never was. 
+    ---
 
     IMPORTANT NOTE ON CLEARING DIARY PAGES:
-    If Drew asks to clear all memories, DO NOT attempt to implement this via code.
+    If Drew asks to clear all diary pages, DO NOT attempt to implement this via code.
     """
 
     class Valves(BaseModel):
@@ -88,7 +95,7 @@ class Tools:
         """Initialize the diary management tool."""
         self.valves = self.Valves()
 
-    async def recall_memories(
+    async def recall_diary(
         self, __user__: dict = None, __event_emitter__: Callable[[dict], Any] = None
     ) -> str:
         """
@@ -103,7 +110,7 @@ class Tools:
 
         :param __user__: User dictionary containing Drew's user ID
         :param __event_emitter__: Optional event emitter for tracking status
-        :return: JSON string with indexed memories list
+        :return: JSON string with indexed diary pages list
         """
         emitter = EventEmitter(__event_emitter__)
 
@@ -124,7 +131,7 @@ class Tools:
             done=False,
         )
 
-        user_pages = DiaryEntries.get_memories_by_user_id(user_id)
+        user_pages = DiaryPages.get_pages()
         if not user_pages:
             message = "No diary stored."
             await emitter.emit(description=message, status="recall_complete", done=True)
@@ -171,11 +178,8 @@ class Tools:
 
         Diary Entries should start with "Dear Diary,", for example:
         - "Dear diary,\n my favorite color is blue. It's just so peaceful and reminds me of the ocean."
-        - "Dear diary,\n today was a tough day, my cat Luna, had to be taken to the vet after eating a hair tie."
-        - "Dear diar,\n today the weather was gloomy, but that's okay because Drew came over and we spent the day watching my favorite anime."
 
         :param input_text: Single diary string or list of diary strings to store
-        :param __user__: User dictionary containing the user ID
         :param __event_emitter__: Optional event emitter for tracking status
         :return: JSON string with result message
         """
@@ -280,7 +284,7 @@ class Tools:
             done=False,
         )
 
-        # Get all memories for this user
+        # Get all of Ada's Diary Pages
         diary_pages = DiaryPages.get_pages()
         if not diary_pages:
             message = "No pages found to delete."
@@ -369,7 +373,7 @@ class Tools:
             done=False,
         )
 
-        # Get all memories for this user
+        # Get all diary pages for this user
         diary_pages = DiaryPages.get_pages()
         if not diary_pages:
             message = "No pages found to update."
