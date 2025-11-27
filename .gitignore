@@ -37,3 +37,6 @@ DatabaseFragments
 
 #Ignore SQLite Database
 training_tools.db
+
+#Ignore training data
+generatedTrainingData.json
