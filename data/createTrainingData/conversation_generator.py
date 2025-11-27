@@ -6,13 +6,13 @@ Core conversation generation logic with tool execution support.
 
 import json
 import os
+import re
 from pathlib import Path
 from typing import Dict, List, Optional, Any
 
 from api_clients import BaseAPIClient
 from tool_executor import ToolExecutor
 
-SYSTEM_PROMPT_PATH="../systemprompts/"
 
 class ConversationGenerator:
     """Generates training conversations with tool execution"""
@@ -32,10 +32,10 @@ class ConversationGenerator:
         """Load system prompts from files"""
         prompts = {}
         prompt_files = {
-            "tester_system": os.path.join(SYSTEM_PROMPT_PATH, "tester_prompt.txt"),
-            "tester_user": os.path.join(SYSTEM_PROMPT_PATH, "tester_prompt.txt"),
-            "ada_system": os.path.join(SYSTEM_PROMPT_PATH, "ada_system_prompt.txt"),
-            "rewriter_system": os.path.join(SYSTEM_PROMPT_PATH, "reweritter_prompt.txt")
+            "tester_system": "tester_system_prompt.txt",
+            "tester_user": "tester_prompt.txt",
+            "ada_system": "ada_system_prompt.txt",
+            "rewriter_system": "reweritter_prompt.txt"
         }
         
         for key, filename in prompt_files.items():
@@ -56,22 +56,18 @@ class ConversationGenerator:
     def _get_tool_instructions(self) -> str:
         """Get tool usage instructions to append to Ada's prompt"""
         return """
-
 === AVAILABLE TOOLS ===
-You have access to memory and diary management tools. Use them naturally and proactively:
+Use these whenever new facts or reflections appear:
+- <tool_call>add_memory(input_text=["..."])</tool_call> saves specific, verifiable details about Drew or an active project.
+- <tool_call>recall_memories()</tool_call> reviews stored memories; <tool_call>delete_memory(indices=[1])</tool_call> removes outdated ones.
+- <tool_call>add_diary(input_text=["..."])</tool_call> records private reflections; <tool_call>recall_diary()</tool_call> and <tool_call>delete_diary(indices=[1])</tool_call> manage them.
 
-Memory Tools (for facts about Drew):
-- <tool_call>add_memory(input_text=["User likes X"])</tool_call>
-- <tool_call>recall_memories()</tool_call>
-- <tool_call>delete_memory(indices=[1])</tool_call>
+Guidelines: write entries in English (emojis ok), avoid fabricating events, and keep memories highly specific ("Drew prefers C for side projects" beats "Drew likes coding"). Use the diary for candid thoughts you may want later but would not tell Drew directly.
 
-Diary Tools (for your personal reflections):
-- <tool_call>add_diary(input_text=["Dear diary, today..."])</tool_call>
-- <tool_call>recall_diary()</tool_call>
-- <tool_call>delete_diary(indices=[1])</tool_call>
-
-IMPORTANT: Use these tools proactively! Don't wait for Drew to tell you what to remember.
-Store important preferences, ongoing projects, and personal reflections naturally.
+Example:
+<think>Need to remember Drew prefers C and jot down why it matters.</think>
+<tool_call>add_memory(input_text=["Drew prefers C for hobby tooling, so I should suggest C-first ideas."])</tool_call>
+<tool_call>add_diary(input_text=["Feeling energized after solving Drew's tooling request; revisit that enthusiasm next time motivation dips."])</tool_call>
 """
     
     async def generate_conversation(
@@ -194,17 +190,19 @@ Store important preferences, ongoing projects, and personal reflections naturall
     async def _rewrite_thinking(self, response: str) -> Optional[str]:
         """Rewrite thinking section for more human-like quality"""
         
-        # Extract thinking section
-        thinking_section = response.partition('<think>\n')[2].partition('</think>')[0]
-        
-        if not thinking_section:
+        pattern = re.compile(r"<think>(.*?)</think>", re.DOTALL)
+        match = pattern.search(response)
+        if not match:
             return response  # No thinking section to rewrite
+        thinking_section = match.group(1).strip()
         
         # Ask rewriter to improve it
         rewrite_prompt = (
             "** Internal thinking section to rewrite:**\n" +
             thinking_section +
-            "\n**End of Internal thinking section to rewrite.**"
+            "\n**End of Internal thinking section to rewrite.**\n\n" +
+            "Rewrite this thinking section in a more natural, human-like way. " +
+            "Keep it in first person as Ada. Make it sound like genuine internal thoughts."
         )
         
         revised_thinking = await self.client.query([
@@ -217,11 +215,13 @@ Store important preferences, ongoing projects, and personal reflections naturall
         
         # Clean up and substitute
         revised_thinking = revised_thinking.replace("the user", "Drew")
-        revised_thinking = revised_thinking.partition('</think>\n\n')[2] or revised_thinking
+        revised_thinking = revised_thinking.replace("The user", "Drew")
+        revised_thinking = re.sub(r"</?think>", "", revised_thinking, flags=re.IGNORECASE).strip()
         
-        # Reconstruct response
-        trimmed_answer = response.partition('</think>\n\n')[2]
-        final_response = revised_thinking + "</think>\n\n" + trimmed_answer
+        before = response[:match.start()]
+        after = response[match.end():]
+        replacement = f"<think>\n{revised_thinking}\n</think>"
+        final_response = f"{before}{replacement}{after}"
         
         return final_response
     
