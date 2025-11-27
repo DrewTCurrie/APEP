@@ -1,0 +1,17 @@
+aiohttp
+datasets
+huggingface-hub
+matplotlib
+mistralai
+open-webui
+peft
+praw
+pydantic
+requests
+sqlalchemy
+together
+torch
+transformers
+trl
+tqdm
+unsloth
