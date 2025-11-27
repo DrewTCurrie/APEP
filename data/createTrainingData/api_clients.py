@@ -115,7 +115,7 @@ class TogetherClient(BaseAPIClient):
 class HuggingFaceClient(BaseAPIClient):
     """Hugging Face Inference API client"""
     
-    def __init__(self, api_key: str, model: str = "mistralai/Mistral-7B-Instruct-v0.2"):
+    def __init__(self, api_key: str, model: str = "Qwen/QwQ-32B-Preview"):
         super().__init__(
             api_key=api_key,
             model=model,
@@ -134,7 +134,7 @@ class HuggingFaceClient(BaseAPIClient):
         response = self.client.chat_completion(
             messages=messages,
             model=self.model,
-            max_tokens=2000
+            max_tokens=4000
         )
         return response.choices[0].message.content
 
