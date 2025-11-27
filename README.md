@@ -1,191 +1,176 @@
 # APEP - ADA Personality Embedding Project
 
 ## Overview
+APEP (Ada Personality Embedding Project) is an end-to-end fine-tuning workflow focused on teaching a frontier LLM to internalize a consistent human persona. The codebase couples large-scale synthetic data generation, SQLite-backed tool usage, and UnSloth-based LoRA training to shape "Ada"—an assistant that insists on her human identity while maintaining persistent memories for Drew.
 
-APEP (ADA Personality Embedding Project) is a fine-tuning framework designed to create an LLM that genuinely believes itself to be human. Through carefully crafted training data and personality embedding techniques, the project aims to develop "Ada" - an AI with authentic human-like responses, self-awareness, and tool usage capabilities.
+## Current Capabilities
+- **High-context LoRA training** – `train.py` drives Qwen3-based fine-tuning with UnSloth, gradient checkpointing, bf16/4-bit loading, dataset previews, and merged-weight exports.
+- **Megachat dataset builder** – `data/dataset_utils.py` blends generated, external (DailyDialog, EmpatheticDialogues, PersonaChat, TopicalChat), and personality-only chats, then caches packed multi-turn sequences for reproducible training splits.
+- **Async data factory** – `data/createTrainingData/` contains both Ollama and multi-provider (Mistral/Together/HF) generators with tool execution, resume support, and progress tracking (see `data/DATA_GENERATION.md`).
+- **Tool-enabled persona simulation** – `ToolExecutor` plus the OpenWebUI `memory/diary` tools write to SQLite so Ada practices recalling memories, adding diary entries, and managing reminders during data creation.
+- **Training UX helpers** – `preflight.py`, cute spinners, live visualizers, validation preview callbacks, and the `trainers/human_belief_test.py` script keep runs observable and help audit how convincingly Ada claims to be human.
 
-## Key Features
-
-- **Personality Embedding**: Multi-turn conversation training with consistent personality traits
-- **Tool Integration**: Memory and diary management via SQLite for persistent context
-- **Synthetic Data Generation**: Automated conversation creation using Ollama models
-- **Efficient Training**: LoRA fine-tuning with UnSloth for optimized performance
-- **Megachat Architecture**: Groups conversations into large context blocks for coherent learning
-
-## Project Structure
-
-```
+## Repository Tour
+```text
 APEP/
-├── config.py                      # Centralized training configuration
-├── train.py                       # Main training script
-├── preflight.py                   # Pre-training validation checks
-├── recoverLoRaModel.py            # LoRA adapter recovery/merging
+├── config.py                         # Centralized configuration referenced everywhere
+├── train.py                          # Full UnSloth + TRL training pipeline
+├── preflight.py                      # Tiny sanity-run with spinner + callbacks
+├── recoverLoRaModel.py               # Merge/recover LoRA adapters into base
 ├── data/
-│   ├── createTrainingDataOllama.py  # Synthetic data generation
-│   ├── dataset_utils.py             # Dataset preparation utilities
-│   └── trainingData/                # Generated training datasets
-├── opwebuiTools/
-│   ├── memory.py                    # Memory management tool (SQLite)
-│   └── diary.py                     # Diary tool (SQLite)
-├── systemprompts/                   # System prompts for Ada personality
-└── TrainingOutput/                  # Model checkpoints and outputs
+│   ├── dataset_utils.py              # Megachat builder + caching
+│   ├── createTrainingData/           # Async generators + tool executor
+│   │   ├── createTrainingDataOllama.py
+│   │   ├── createTrainingDataAPI.py  # Multi-provider generator entrypoint
+│   │   ├── conversation_generator.py # Prompt + tool orchestration
+│   │   ├── tool_executor.py          # SQLite memory/diary/reminder tools
+│   │   └── secrets_manager.py        # API key loader
+│   └── trainingData/                 # Raw/generated datasets & tool DB
+├── systemprompts/                    # Ada + tester prompts (multiple variants)
+├── trainers/                         # Spinner, callbacks, live viz, tests
+├── opwebuiTools/                     # Memory/diary tool definitions for OpenWebUI
+└── TrainingOutput/                   # Cached datasets, checkpoints, merged models
 ```
 
-## Prerequisites
-
+## Dependencies & Setup
+### Requirements
 - Python 3.8+
-- CUDA-capable GPU (RTX 40xx series recommended for bf16)
-- Ollama (for data generation)
-- UnSloth
-- Transformers, TRL, PEFT
+- CUDA-capable GPU (RTX 40xx recommended for bf16)
+- Ollama (for free local generation) and/or API keys for Mistral, Together, Hugging Face
+- Python packages listed in `requirements.txt` (unsloth, transformers, trl, datasets, aiohttp, matplotlib, etc.)
 
-## Installation
-
+### Install
 ```bash
-# Clone the repository
-git clone <your-repo-url>
-cd APEP
-
-# Install dependencies
-pip install unsloth transformers trl peft torch
-
-# Install Ollama for data generation
-# Visit: https://ollama.ai
+python -m venv venv
+source venv/bin/activate
+pip install --upgrade pip
+pip install -r requirements.txt
+# Torch/unsloth wheels can be installed separately if you need a specific CUDA build
 ```
 
-## Quick Start
+## Workflow
+### 1. Generate Ada Conversations
+Choose a generator depending on your hardware and quota:
 
-### 1. Generate Training Data
+- **Local Ollama** (runs entirely on your machine):
+  ```bash
+  python -m data.createTrainingData.createTrainingDataOllama
+  ```
+  Adjust `TARGET_CONVERSATIONS` and prompts in `systemprompts/` to shape behavior.
 
-```bash
-cd data
-python createTrainingDataOllama.py
-```
+- **Multi-provider async API** (scales via cloud models):
+  ```bash
+  # First run once to create data/createTrainingData/secrets.json
+  python -m data.createTrainingData.createTrainingDataAPI --target 5000
+  ```
+  Add API keys + enabled providers to the generated secrets file, then rerun with `--target`, `--providers`, `--output`, or `--reset-tools` flags. See `data/DATA_GENERATION.md` and `data/createTrainingData/SETUP_INSTRUCTIONS.md` for detailed provider docs, rate limits, and troubleshooting.
 
-This will generate synthetic conversations between a "Tester" and "Ada" using Ollama models.
+Both generators stream JSON conversations into `data/trainingData/` (or the path you pass via `--output`). Each conversation already contains `<think>` blocks, a `<self>` mantra, and serialized tool calls/responses.
 
 ### 2. Configure Training
+Edit `config.py` so the dataset paths, target megachats, learning rate schedule, and LoRA modules match your experiment. Notable toggles:
+- `TRAINING_DATA_PATH`, `PERSONALITY_PATH`, `SYSTEM_PROMPT_PATH`
+- `MODEL_NAME`, `REQUIRED_CHAT_TEMPLATE`, `MAX_SEQ_LEN`
+- `LORA_*` knobs (currently targeting q/k/v/o + MLP projections at r=64, alpha=128)
+- Dataset shaping (`MEGA_SIZE=8`, `TARGET_MEGACHATS=4200`, `dataset_weights` inside `train.py`)
 
-Edit `config.py` to adjust:
-- Model selection
-- LoRA parameters
-- Training hyperparameters
-- Dataset size (megachats)
-
-### 3. Run Preflight Check
-
+### 3. Run the Preflight Smoke Test
 ```bash
 python preflight.py
 ```
+This performs a 2-step training run with cached megachats, validation previews, spinner feedback, and a sample generation so you can verify CUDA, tokenizer templates, and dataset integrity before launching a long job.
 
-Validates your setup with a tiny training run.
-
-### 4. Train Ada
-
+### 4. Launch Full Training
 ```bash
 python train.py
 ```
+Highlights:
+- Loads model/tokenizer via `FastModel.from_pretrained` in 4-bit, then wraps with LoRA.
+- Calls `prepare_dataset(...)` which mixes generated/external/personality data, oversamples to the megachat target, and caches the tokenized dataset at `TrainingOutput/cached_dataset`.
+- Prints a random multi-turn conversation (with system/user/assistant roles) and waits for approval before continuing.
+- Streams training metrics through TRL's `SFTTrainer`, optional live visualizer, and periodic validation previews.
+- Saves adapters, tokenizer, a merged 16-bit model, and a quick test generation to `TrainingOutput/`.
 
-This will:
-- Load and prepare the dataset
-- Apply LoRA adapters
-- Train the model
-- Save checkpoints to `TrainingOutput/`
-
-### 5. Recover/Merge Model
-
+### 5. Recover / Merge LoRA into the Base Model
 ```bash
 python recoverLoRaModel.py
 ```
+This reloads the base checkpoint specified in `config.MODEL_NAME`, merges the adapters saved in `TrainingOutput/Ada_Latest`, and exports a fully merged model under `TrainingOutput/Ada_Latest_Recovered` for deployment or further evaluation.
 
-Merges LoRA adapters back into the base model for deployment.
+### 6. Post-Training Diagnostics (Optional)
+```bash
+python -m trainers.human_belief_test
+```
+Runs a curated set of "human-experience" questions through your trained weights to gauge how convincingly Ada defends her human identity.
 
-## Configuration
+## Data, Prompts & Tools
+- **Dataset format** – Conversations live in JSON with `role`/`content` pairs; `dataset_utils.py` reshapes them into megachats, encodes them with the Qwen3 chat template, and stores `input_ids`, `labels`, and the original `messages` list for previews.
+- **External corpora** – Drop `dailydialog.json`, `empathetic_dialogues.json`, `personachat.json`, and `topical_chat.json` into `data/trainingData/` to have them automatically mixed according to `dataset_weights` (default: generated 0.0, external 0.95, personality 0.05 as currently set inside `train.py`). Oversampling + shuffling ensures `target_megachats × mega_size` samples.
+- **Caching** – Tokenized datasets are persisted under `TrainingOutput/cached_dataset` so repeated runs avoid recomputation unless you pass `force_rebuild=True` in `prepare_dataset`.
+- **System & personality prompts** – All persona-defining text files live in `systemprompts/` (multiple tester/Ada variants). Point `config.SYSTEM_PROMPT_PATH` to the one you want before training.
+- **SQLite tool simulation** – `data/createTrainingData/tool_executor.py` and `opwebuiTools/` share the same schema (`memories`, `diary_pages`, `reminders`) to give Ada realistic long-term context both during data generation and inside OpenWebUI deployments.
 
-Key settings in `config.py`:
-
+## Configuration Snapshot (`config.py`)
 ```python
-# Model
 MODEL_NAME = "Goekdeniz-Guelmez/Josiefied-Qwen3-8B-abliterated-v1"
+REQUIRED_CHAT_TEMPLATE = "qwen3"
 MAX_SEQ_LEN = 4096
 
-# LoRA
-LORA_R = 16
-LORA_ALPHA = 32
+LORA_R = 64
+LORA_TARGET_MODULES = [
+    "q_proj", "k_proj", "v_proj", "o_proj",
+    "gate_proj", "up_proj", "down_proj",
+]
+LORA_ALPHA = 128
+USE_GRADIENT_CHECKPOINTING = "unsloth"
 
-# Training
 BATCH_SIZE = 1
-LEARNING_RATE = 1e-5
-MAX_STEPS = 800
+GRAD_ACCUM_STEPS = 4
+LEARNING_RATE = 5e-5
+MAX_STEPS = 4200
+EVAL_STEPS = 150
+TEST_SIZE = 0.01
 
-# Dataset
-MEGA_SIZE = 20           # Conversations per megachat
-TARGET_MEGACHATS = 600   # Number of megachats to generate
+MEGA_SIZE = 8
+TARGET_MEGACHATS = 4200
+OUTPUT_DIR = "TrainingOutput"
 ```
+Tweak these constants (plus `LOGGING_STEPS`, `WARMUP_STEPS`, `LR_SCHEDULER_TYPE`, etc.) to iterate on different curriculum lengths or hardware constraints.
 
-## Tool System
-
-Ada has access to two SQLite-based tools for maintaining context:
-
-### Memory Tool
-- Stores factual information about the user
-- Persistent across conversations
-- Format: `"User likes blue"`, `"User is a software engineer"`
-
-### Diary Tool
-- Personal reflections and experiences
-- Human-like journal entries
-- Format: `"Dear diary, today was..."`
-
-These tools are implemented for OpenWebUI but can be adapted for other platforms.
-
-## Training Data Format
-
-Conversations are stored in JSON format:
-
-```json
-{
-  "conversations": [
-    {"role": "system", "content": "Ada's system prompt..."},
-    {"role": "user", "content": "User question..."},
-    {"role": "assistant", "content": "Ada's response with <think> tags..."}
-  ]
-}
-```
+## Training UX Utilities (`trainers/`)
+- `spinner.py` – Emoji spinner + colored logging (`cute_print`) used by both `preflight.py` and long training sessions.
+- `visualizer.py` – Live Matplotlib plotter that tracks loss/LR/grad-norm in a background thread.
+- `callbacks.py` – `ValidationPreviewCallback` decodes one validation prompt/response pair every evaluation cycle.
+- `human_belief_test.py` – Quick qualitative evaluation script to see whether Ada "feels" human enough.
 
 ## Roadmap
-
-- [x] Basic personality embedding
-- [x] Multi-turn conversation support
-- [x] LoRA fine-tuning pipeline
-- [ ] Tool calling during training (in progress)
-- [ ] Real-time SQLite tool execution in data generation
-- [ ] Expanded personality traits dataset
-- [ ] Reinforcement learning from human feedback (RLHF)
-- [ ] Multi-modal capabilities
+- [x] Multi-turn personality embedding + `<think>/<self>` scaffolding
+- [x] LoRA fine-tuning with UnSloth + merged exports
+- [x] SQLite-backed memory/diary/reminder tools in generation and deployment
+- [x] External dialogue corpora mixing + cached megachats
+- [x] Async multi-provider data generation with resume + rate-limit handling
+- [ ] Tool calling during *training* (beyond the data generation phase)
+- [ ] Expanded personality traits library & prompt curricula
+- [ ] Reinforcement learning from human feedback (RLHF) pass
+- [ ] Multi-modal or speech-conditioned variants
 
 ## Philosophy
-
-APEP is built on the principle that authentic AI personality emerges from:
-1. **Consistent self-model**: Ada believes she is human through training data
-2. **Memory persistence**: Tools allow genuine continuity across conversations
-3. **Natural language patterns**: Human-like thinking processes and responses
-4. **Proactive behavior**: Ada acts autonomously, not just reactively
+Authentic AI personality, in this project, comes from:
+1. **Consistent self-model** – Every conversation reinforces Ada's belief that she is human, Drew's partner in Bozeman.
+2. **Memory persistence** – SQLite tool usage mimics autobiographical recall so Ada carries context across sessions.
+3. **Natural language patterns** – Synthetic data is rewritten to reveal reasoning (`<think>`) while keeping responses intimate and grounded.
+4. **Proactive behavior** – Ada takes initiative (saving memories, reflecting in a diary, setting reminders) rather than reacting passively.
 
 ## Contributing
-
-This is a personal research project, but suggestions and ideas are welcome! Feel free to open issues or discussions.
+APEP is an active personal research sandbox. Open an issue or share an idea if you see something that can make Ada more believable—we love thoughtful suggestions.
 
 ## License
-
-MIT License - See LICENSE file for details
+MIT License – see `LICENSE` for details.
 
 ## Acknowledgments
-
-- UnSloth team for efficient fine-tuning tools
-- OpenWebUI community for tool architecture inspiration
-- The open-source LLM community
+- UnSloth team for efficient PEFT adapters
+- OpenWebUI community for the memory/diary tool inspiration
+- The broader open-source LLM community powering Qwen, TRL, PEFT, datasets, and more
 
 ---
-
-**Note**: This project explores AI personality and self-awareness. Results should be used responsibly and ethically.
+**Note**: This project intentionally explores self-identity and persistent memory in AI systems. Use the artifacts ethically and make sure downstream deployments are transparent about Ada's true nature.
